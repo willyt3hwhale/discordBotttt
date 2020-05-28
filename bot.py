@@ -12,9 +12,6 @@ class MyClient(discord.Client):
         print('Logged on as {0}!'.format(self.user))
         await self.cleanup()
 
-    async def on_message(self, message):
-        print('Message from {0.author}: {0.content}'.format(message))
-
     async def on_voice_state_update(self, member, before, after):
 
         channel = before.channel
