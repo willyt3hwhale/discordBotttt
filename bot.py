@@ -29,12 +29,9 @@ class MyClient(discord.Client):
 
     	if (channel.category_id not in self.watched_categories):
     		return
-    	if (channel.type != discord.ChannelType.voice):
-    		await channel.delete()
-    		return
 
-    	await asyncio.sleep(30)
-    	if(len(channel.members) == 0):
+    	await asyncio.sleep(300)
+    	if(len(channel.members) == 0 or channel.type != discord.ChannelType.voice):
     		await channel.delete()
 
 
