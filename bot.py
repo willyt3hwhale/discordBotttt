@@ -58,6 +58,7 @@ class MyClient(discord.Client):
     _whitelist = {}
     _moderators = {}
     _privateChannelSpawn = {}
+    _privateChannelQueue = {}
     _privateCategory = {}
     _privateChannelMessages = {}
     _startupCompleted = False
@@ -67,6 +68,7 @@ class MyClient(discord.Client):
 
     def allWhitelist(self, guild_id):
         return self._whitelist.get(guild_id, []) + [x for x in [self._privateChannelSpawn.get(guild_id, None)
+                                                               ,self._privateChannelQueue.get(guild_id, None)
                                                                ,self._privateChannelMessages.get(guild_id, None)] if x is not None]
 
     async def on_ready(self):
@@ -134,6 +136,15 @@ class MyClient(discord.Client):
                 self._privateCategory[guild.id] = int(args)
             await self.save_config(guild)
 
+    @admin_command(commands)
+    async def private_waitroom(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if len(args) == 0:
+                self._privateChannelQueue.pop(guild.id)
+            elif int(args) in [x.id for x in guild.voice_channels]:
+                self._privateChannelQueue[guild.id] = int(args)
+            await self.save_config(guild)
+
     @command(commands)
     async def join(self, args, context):
         channel = context.user.voice.channel
@@ -185,6 +196,13 @@ class MyClient(discord.Client):
                         await channel.set_permissions(invitee, connect=True, speak=True, stream=True)
                         await reaction.message.clear_reactions()
                         await reaction.message.edit(content=f"User {invitee.mention} can now join the voice channel.")
+                        queueChannel = self._privateChannelQueue.get(reaction.message.channel.guild.id)
+                        if queueChannel is not None:
+                            queueChannel = reaction.message.channel.guild.get_channel(queueChannel)
+                            if queueChannel is not None:
+                                member = next((x for x in queueChannel.members if x == invitee), None)
+                                if member is not None:
+                                    await member.move_to(channel)
                     else:
                         await reaction.remove(user)
                 except ValueError:
@@ -226,10 +244,15 @@ class MyClient(discord.Client):
                     }
                     new_voice = await category.create_voice_channel(f"{member.name}'s private channel", reason=f"Requested by {privateMember.name}#{privateMember.discriminator}", overwrites=overwrites)
                     await privateMember.move_to(new_voice, reason="Moved to newly created channel")
+            elif after.channel.id == self._privateChannelQueue.get(guild.id, None):
+                pass
             elif after.channel.category_id == self._privateCategory.get(guild.id, None) and after.channel.overwrites_for(member).is_empty():
                 channelMention = after.channel.mention
                 await after.channel.set_permissions(member, connect=False)
-                await member.move_to(None, reason="Not yet accepted to the group")
+                waitroom = self._privateChannelQueue.get(guild.id, None)
+                if waitroom is not None:
+                    waitroom = guild.get_channel(waitroom)
+                await member.move_to(waitroom, reason="Not yet accepted to the group")
                 msgChannel = self._privateChannelMessages.get(guild.id, None)
                 if msgChannel is not None:
                     msgChannel = guild.get_channel(msgChannel)
@@ -290,6 +313,7 @@ class MyClient(discord.Client):
         commands = "\n".join(["!watch " + str(x) for x in self._watchlist.get(guild.id, [])]
                             +["!whitelist " + str(x) for x in self._whitelist.get(guild.id, [])]
                             +["!private_spawn " + str(x) for x in [self._privateChannelSpawn.get(guild.id, None)] if x is not None]
+                            +["!private_waitroom " + str(x) for x in [self._privateChannelQueue.get(guild.id, None)] if x is not None]
                             +["!private_control " + str(x) for x in [self._privateChannelMessages.get(guild.id, None)] if x is not None]
                             +["!private_category " + str(x) for x in [self._privateCategory.get(guild.id, None)] if x is not None])
         if len(commands) == 0:
