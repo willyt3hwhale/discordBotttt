@@ -59,23 +59,26 @@ class MyClient(discord.Client):
     moderators = {}
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
+        await self.init_config()
         await self.cleanup()
 
     @command(commands)
     async def print(self, args, context):
        await context.channel.send(content=str(args))
 
-    @mod_command(commands)
-    async def watch(self, args, context, mod_for=None):
-        if (int(args) not in self.watchlist.setdefault(context.channel.guild.id, [])):
-            self.watchlist[context.channel.guild.id].append(int(args))
-        await context.channel.send(content=str(self.watchlist))
+    @admin_command(commands)
+    async def watch(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if (int(args) not in self.watchlist.setdefault(guild.id, [])) and int(args) in [x.id for x in guild.categories]:
+                self.watchlist[guild.id].append(int(args))
+        await self.save_config()
 
-    @mod_command(commands)
-    async def unwatch(self, args, context, mod_for=None):
-        if (int(args) in self.watchlist.get(context.channel.guild.id, [])):
-            self.watchlist[context.channel.guild.id].remove(int(args))
-        await context.channel.send(content=str(self.watchlist))
+    @admin_command(commands)
+    async def unwatch(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if (int(args) in self.watchlist.get(guild.id, [])):
+                self.watchlist[guild.id].remove(int(args))
+        await self.save_config()
 
     @command(commands)
     async def join(self, args, context):
@@ -155,17 +158,44 @@ class MyClient(discord.Client):
                     await channel.delete()
 
     async def init_config(self):
-        admins = {}
         for guild in self.guilds:
+            if guild.owner.dm_channel is None:
+                await guild.owner.create_dm()
+            async for config in guild.owner.dm_channel.history():
+                if config.author == guild.owner:
+                    continue
+                print(config)
+                for line in config.content.splitlines():
+                    class FakeDiscordMessage:
+                        pass
+                    message = FakeDiscordMessage()
+                    message.author = guild.owner
+                    message.channel = guild.owner.dm_channel
+                    message.content = line
+                    message.guild = guild
+                    await self.on_message(message)
+                break
+
+    def get_commands(self, guild):
+        commands = "\n".join(["!watch " + str(x) for x in self.watchlist[guild.id]])
+        if len(commands) == 0:
+            return "No config"
+        return commands
+
+    async def save_config(self, guild = None):
+        guilds = [guild] if guild else self.guilds
+        for guild in guilds:
             if guild.owner is not None:
-                admins.setdefault(guild.owner, []).append(guild)
-
-        for (admin, guilds) in admins.items():
-            if admin.dm_channel is None:
-                await admin.create_dm()
-            config = admin.dm_channel.history(limit=1, oldest_first=True)
-
-        return config
+                if guild.owner.dm_channel is None:
+                    await guild.owner.create_dm()
+                async for message in guild.owner.dm_channel.history():
+                    if message.author == guild.owner:
+                        continue
+                    print("Setting message", self.get_commands(guild))
+                    await message.edit(content=self.get_commands(guild))
+                    break
+                else:
+                    guild.owner.dm_channel.send(content=self.get_commands(guild))
 
 
 
