@@ -58,6 +58,14 @@ class MyClient(discord.Client):
     _whitelist = {}
     _moderators = {}
     _privateChannelQueue = {}
+    _privateChannel = {}
+
+    def allWatchlist(self, guild_id):
+        return self._watchlist.get(guild_id, []) + [x for x in [self._privateChannel.get(guild_id, None)] if x is not None]
+
+    def allWhitelist(self, guild_id):
+        return self._whitelist.get(guild_id, []) + [x for x in [self._privateChannelQueue.get(guild_id, None)] if x is not None]
+
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
         await self.init_config()
@@ -102,6 +110,15 @@ class MyClient(discord.Client):
                 self._privateChannelQueue.pop(guild.id)
             elif int(args) in [x.id for x in guild.voice_channels]:
                 self._privateChannelQueue[guild.id] = int(args)
+            await self.save_config(guild)
+
+    @admin_command(commands)
+    async def private_category(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if len(args) == 0:
+                self._privateChannel.pop(guild.id)
+            elif int(args) in [x.id for x in guild.categories]:
+                self._privateChannel[guild.id] = int(args)
             await self.save_config(guild)
 
     @command(commands)
@@ -150,24 +167,26 @@ class MyClient(discord.Client):
 
             is_empty = len(current_members) == 0
             channel_id = channel.id
-            if(is_empty and category in self._watchlist.get(channel.guild.id, []) and channel_id not in self._whitelist.get(channel.guild.id, [])):
+            if(is_empty and category in self.allWatchlist(channel.guild.id) and channel_id not in self.allWhitelist(channel.guild.id)):
                 await channel.delete()
 
         if after.channel:
-            for after.channel.id in [self._privateChannelQueue[after.channel.guild.id]]:
+            if after.channel.id == self._privateChannelQueue[after.channel.guild.id]:
                 channel = after.channel
                 guild = channel.guild
-                watched = self._watchlist.get(guild.id, [])
-                if len(watched) is None:
-                    break
-                category = guild.get_channel(watched[0])
-                overwrites = {
-                        guild.me: discord.PermissionOverwrite(manage_channels=True, manage_permissions=True, connect=True),
-                        guild.default_role: discord.PermissionOverwrite(manage_channels=False, connect=False, create_instant_invite=True),
-                        member: discord.PermissionOverwrite(move_members=True, mute_members=True, deafen_members=True),
-                }
-                new_voie = await category.create_voice_channel("Private channel", reason=f"Requested by {member.name}#{member.discriminator}", overwrites=overwrites)
-                await member.move_to(new_voie, reason="Moved to newly created channel")
+                for privateMember in [x for x in [member] if x is not None]:
+                    category_id = self._privateChannel.get(guild.id, (self.allWatchlist(guild.id) + [None])[0])
+                    if category_id is None:
+                        break
+                    category = guild.get_channel(category_id)
+                    overwrites = {
+                            guild.me: discord.PermissionOverwrite(manage_channels=True, manage_permissions=True, connect=True),
+                            guild.default_role: discord.PermissionOverwrite(manage_channels=False, connect=False, create_instant_invite=True),
+                            privateMember: discord.PermissionOverwrite(move_members=True, mute_members=True, deafen_members=True),
+                            privateMember: discord.PermissionOverwrite(manage_channels=True, move_members=True, mute_members=True, deafen_members=True),
+                    }
+                    new_voie = await category.create_voice_channel("Private channel", reason=f"Requested by {privateMember.name}#{privateMember.discriminator}", overwrites=overwrites)
+                    await privateMember.move_to(new_voie, reason="Moved to newly created channel")
 
     async def on_guild_channel_create(self, channel):
         if (channel.category_id not in self._watchlist.get(channel.guild.id, [])):
@@ -193,7 +212,7 @@ class MyClient(discord.Client):
     async def cleanup(self):
         for server in self.guilds:
             for channel in server.channels:
-                if(channel.category_id in self._watchlist.get(channel.guild.id, []) and channel.id not in self._whitelist.get(channel.guild.id, []) and (channel.type != discord.ChannelType.voice or len(channel.members) == 0 )):
+                if(channel.category_id in self.allWatchlist(channel.guild.id) and channel.id not in self.allWhitelist(channel.guild.id) and (channel.type != discord.ChannelType.voice or len(channel.members) == 0 )):
                     await channel.delete()
 
     async def init_config(self):
@@ -218,7 +237,8 @@ class MyClient(discord.Client):
     def get_commands(self, guild):
         commands = "\n".join(["!watch " + str(x) for x in self._watchlist.get(guild.id, [])]
                             +["!whitelist " + str(x) for x in self._whitelist.get(guild.id, [])]
-                            +["!private_queue " + str(x) for x in [self._privateChannelQueue.get(guild.id, None)] if x is not None])
+                            +["!private_queue " + str(x) for x in [self._privateChannelQueue.get(guild.id, None)] if x is not None]
+                            +["!private_category " + str(x) for x in [self._privateChannel.get(guild.id, None)] if x is not None])
         if len(commands) == 0:
             return "No config"
         return commands
