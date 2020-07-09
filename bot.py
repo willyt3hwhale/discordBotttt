@@ -267,7 +267,11 @@ class MyClient(discord.Client):
         if (channel.type == discord.ChannelType.voice):
             await asyncio.sleep(voice_timeout)
             if(len(channel.members) == 0):
-                await channel.delete()
+                if channel.id not in self.allWhitelist(channel.guild.id):
+                    try:
+                        await channel.delete()
+                    except:
+                        pass
 
         elif (channel.type == discord.ChannelType.text):
             await asyncio.sleep(text_message_timeout)
@@ -277,7 +281,11 @@ class MyClient(discord.Client):
                 if(timeout <= 0):
                     break
                 await asyncio.sleep(timeout)
-            await channel.delete()
+            if channel.id not in self.allWhitelist(channel.guild.id):
+                try:
+                    await channel.delete()
+                except:
+                    pass
 
 
 
@@ -289,6 +297,11 @@ class MyClient(discord.Client):
                         await channel.delete()
                     except:
                         pass
+            botMsgs = self._privateChannelMessages.get(server.id, None)
+            if botMsgs is not None:
+                botMsgs = server.get_channel(botMsgs)
+                if botMsgs is not None:
+                    await botMsgs.purge(before=datetime.now() - timedelta(days=1), oldest_first=True)
 
     async def init_config(self):
         for guild in self.guilds:
