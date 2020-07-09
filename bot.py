@@ -59,6 +59,7 @@ class MyClient(discord.Client):
     _moderators = {}
     _privateChannelQueue = {}
     _privateChannel = {}
+    _startupCompleted = False
 
     def allWatchlist(self, guild_id):
         return self._watchlist.get(guild_id, []) + [x for x in [self._privateChannel.get(guild_id, None)] if x is not None]
@@ -70,6 +71,7 @@ class MyClient(discord.Client):
         print('Logged on as {0}!'.format(self.user))
         await self.init_config()
         await self.cleanup()
+        self._startupCompleted = True
 
     @command(commands)
     async def print(self, args, context):
@@ -244,6 +246,8 @@ class MyClient(discord.Client):
         return commands
 
     async def save_config(self, guild = None):
+        if not self._startupCompleted:
+            return
         guilds = [guild] if guild else self.guilds
         for guild in guilds:
             if guild.owner is not None:
