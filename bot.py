@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import discord
 from secret import api_token
 from time import sleep, time
@@ -124,7 +126,7 @@ class MyClient(discord.Client):
         channel_id = channel.id
         if(is_empty and category in self.watchlist.get(channel.guild.id, []) and channel_id not in self.whitelist.get(channel.guild.id, [])):
             await channel.delete()
-        
+
     async def on_guild_channel_create(self, channel):
         if (channel.category_id not in self.watchlist.get(channel.guild.id, [])):
             return
