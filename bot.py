@@ -71,14 +71,14 @@ class MyClient(discord.Client):
         for guild in admin_for:
             if (int(args) not in self.watchlist.setdefault(guild.id, [])) and int(args) in [x.id for x in guild.categories]:
                 self.watchlist[guild.id].append(int(args))
-        await self.save_config()
+            await self.save_config(guild)
 
     @admin_command(commands)
     async def unwatch(self, args, context, admin_for=None):
         for guild in admin_for:
             if (int(args) in self.watchlist.get(guild.id, [])):
                 self.watchlist[guild.id].remove(int(args))
-        await self.save_config()
+            await self.save_config(guild)
 
     @command(commands)
     async def join(self, args, context):
@@ -191,8 +191,8 @@ class MyClient(discord.Client):
                 async for message in guild.owner.dm_channel.history():
                     if message.author == guild.owner:
                         continue
-                    print("Setting message", self.get_commands(guild))
-                    await message.edit(content=self.get_commands(guild))
+                    if message.content != self.get_commands(guild):
+                        await message.edit(content=self.get_commands(guild))
                     break
                 else:
                     guild.owner.dm_channel.send(content=self.get_commands(guild))
