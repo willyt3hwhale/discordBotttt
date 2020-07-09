@@ -158,6 +158,10 @@ class MyClient(discord.Client):
                     context = CommandtCtx(channel=message.channel, user=message.author, guild=message.guild, message=message)
                     await commands[cmd](self, args, context)
 
+    async def on_message_edit(self, before, after):
+        if type(after.channel) == discord.DMChannel and before.content != after.content:
+            return await self.on_message(after)
+
 
     async def on_voice_state_update(self, member, before, after):
         if before.channel:
