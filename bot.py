@@ -57,6 +57,7 @@ class MyClient(discord.Client):
     _watchlist = {}
     _whitelist = {}
     _moderators = {}
+    _privateChannelQueue = {}
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
         await self.init_config()
@@ -92,6 +93,15 @@ class MyClient(discord.Client):
         for guild in admin_for:
             if (int(args) in self._whitelist.get(guild.id, [])):
                 self._whitelist[guild.id].remove(int(args))
+            await self.save_config(guild)
+
+    @admin_command(commands)
+    async def private_queue(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if len(args) == 0:
+                self._privateChannelQueue.pop(guild.id)
+            elif int(args) in [x.id for x in guild.voice_channels]:
+                self._privateChannelQueue[guild.id] = int(args)
             await self.save_config(guild)
 
     @command(commands)
@@ -192,7 +202,8 @@ class MyClient(discord.Client):
 
     def get_commands(self, guild):
         commands = "\n".join(["!watch " + str(x) for x in self._watchlist.get(guild.id, [])]
-                            +["!whitelist " + str(x) for x in self._whitelist.get(guild.id, [])])
+                            +["!whitelist " + str(x) for x in self._whitelist.get(guild.id, [])]
+                            +["!private_queue " + str(x) for x in [self._privateChannelQueue.get(guild.id, None)] if x is not None])
         if len(commands) == 0:
             return "No config"
         return commands
