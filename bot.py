@@ -141,18 +141,33 @@ class MyClient(discord.Client):
 
 
     async def on_voice_state_update(self, member, before, after):
-        if (not before.channel):
-            return
-        channel = before.channel
-        category = channel.category_id
-        switched_channel = channel == after.channel
+        if before.channel:
+            channel = before.channel
+            category = channel.category_id
+            switched_channel = channel == after.channel
 
-        current_members = channel.members
+            current_members = channel.members
 
-        is_empty = len(current_members) == 0
-        channel_id = channel.id
-        if(is_empty and category in self._watchlist.get(channel.guild.id, []) and channel_id not in self._whitelist.get(channel.guild.id, [])):
-            await channel.delete()
+            is_empty = len(current_members) == 0
+            channel_id = channel.id
+            if(is_empty and category in self._watchlist.get(channel.guild.id, []) and channel_id not in self._whitelist.get(channel.guild.id, [])):
+                await channel.delete()
+
+        if after.channel:
+            for after.channel.id in [self._privateChannelQueue[after.channel.guild.id]]:
+                channel = after.channel
+                guild = channel.guild
+                watched = self._watchlist.get(guild.id, [])
+                if len(watched) is None:
+                    break
+                category = guild.get_channel(watched[0])
+                overwrites = {
+                        guild.me: discord.PermissionOverwrite(manage_channels=True, manage_permissions=True, connect=True),
+                        guild.default_role: discord.PermissionOverwrite(manage_channels=False, connect=False, create_instant_invite=True),
+                        member: discord.PermissionOverwrite(move_members=True, mute_members=True, deafen_members=True),
+                }
+                new_voie = await category.create_voice_channel("Private channel", reason=f"Requested by {member.name}#{member.discriminator}", overwrites=overwrites)
+                await member.move_to(new_voie, reason="Moved to newly created channel")
 
     async def on_guild_channel_create(self, channel):
         if (channel.category_id not in self._watchlist.get(channel.guild.id, [])):
