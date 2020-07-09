@@ -44,7 +44,7 @@ def admin_command(cmds):
 def mod_command(cmds):
     def dec(func):
         async def _func(self, args, context):
-            if (context.guild and context.guild.owner != context.user and context.user.id not in self.moderators.get(context.guild.id, [])):
+            if (context.guild and context.guild.owner != context.user and context.user.id not in self._moderators.get(context.guild.id, [])):
                 return None
 
             return await func(self, args, context)
@@ -54,9 +54,9 @@ def mod_command(cmds):
 
 
 class MyClient(discord.Client):
-    watchlist = {}
-    whitelist = {}
-    moderators = {}
+    _watchlist = {}
+    _whitelist = {}
+    _moderators = {}
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
         await self.init_config()
@@ -69,15 +69,29 @@ class MyClient(discord.Client):
     @admin_command(commands)
     async def watch(self, args, context, admin_for=None):
         for guild in admin_for:
-            if (int(args) not in self.watchlist.setdefault(guild.id, [])) and int(args) in [x.id for x in guild.categories]:
-                self.watchlist[guild.id].append(int(args))
+            if (int(args) not in self._watchlist.setdefault(guild.id, [])) and int(args) in [x.id for x in guild.categories]:
+                self._watchlist[guild.id].append(int(args))
             await self.save_config(guild)
 
     @admin_command(commands)
     async def unwatch(self, args, context, admin_for=None):
         for guild in admin_for:
-            if (int(args) in self.watchlist.get(guild.id, [])):
-                self.watchlist[guild.id].remove(int(args))
+            if (int(args) in self._watchlist.get(guild.id, [])):
+                self._watchlist[guild.id].remove(int(args))
+            await self.save_config(guild)
+
+    @admin_command(commands)
+    async def whitelist(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if (int(args) not in self._whitelist.setdefault(guild.id, [])) and int(args) in [x.id for x in guild.channels]:
+                self._whitelist[guild.id].append(int(args))
+            await self.save_config(guild)
+
+    @admin_command(commands)
+    async def unwhitelist(self, args, context, admin_for=None):
+        for guild in admin_for:
+            if (int(args) in self._whitelist.get(guild.id, [])):
+                self._whitelist[guild.id].remove(int(args))
             await self.save_config(guild)
 
     @command(commands)
@@ -88,22 +102,22 @@ class MyClient(discord.Client):
     @admin_command(commands)
     async def mod(self, args, context, admin_for=None):
         for target in context.message.mentions:
-            mods = self.moderators.setdefault(context.guild.id, [])
+            mods = self._moderators.setdefault(context.guild.id, [])
             if (target.id not in mods):
                 mods.append(target.id)
-        await context.channel.send(content=str(self.moderators))
+        await context.channel.send(content=str(self._moderators))
 
     @admin_command(commands)
     async def unmod(self, args, context, admin_for=None):
         for target in context.message.mentions:
-            mods = self.moderators.setdefault(context.guild.id, [])
+            mods = self._moderators.setdefault(context.guild.id, [])
             if (target.id in mods):
                 mods.remove(target.id)
-        await context.channel.send(content=str(self.moderators))
+        await context.channel.send(content=str(self._moderators))
 
     async def on_message(self, message):
         print('Message from {0.author}: {0.content}'.format(message))
-        if(message.guild == None or (message.author == message.guild.owner or message.author.id in self.moderators.get(message.guild.id, []))):
+        if(message.guild == None or (message.author == message.guild.owner or message.author.id in self._moderators.get(message.guild.id, []))):
             if (message.content.startswith(command_prefix)):
                 msg = message.content[len(command_prefix):].lower()
                 if (' ' in msg):
@@ -127,11 +141,11 @@ class MyClient(discord.Client):
 
         is_empty = len(current_members) == 0
         channel_id = channel.id
-        if(is_empty and category in self.watchlist.get(channel.guild.id, []) and channel_id not in self.whitelist.get(channel.guild.id, [])):
+        if(is_empty and category in self._watchlist.get(channel.guild.id, []) and channel_id not in self._whitelist.get(channel.guild.id, [])):
             await channel.delete()
 
     async def on_guild_channel_create(self, channel):
-        if (channel.category_id not in self.watchlist.get(channel.guild.id, [])):
+        if (channel.category_id not in self._watchlist.get(channel.guild.id, [])):
             return
 
         if (channel.type == discord.ChannelType.voice):
@@ -154,7 +168,7 @@ class MyClient(discord.Client):
     async def cleanup(self):
         for server in self.guilds:
             for channel in server.channels:
-                if(channel.category_id in self.watchlist.get(channel.guild.id, []) and channel.id not in self.whitelist.get(channel.guild.id, []) and (channel.type != discord.ChannelType.voice or len(channel.members) == 0 )):
+                if(channel.category_id in self._watchlist.get(channel.guild.id, []) and channel.id not in self._whitelist.get(channel.guild.id, []) and (channel.type != discord.ChannelType.voice or len(channel.members) == 0 )):
                     await channel.delete()
 
     async def init_config(self):
@@ -177,7 +191,8 @@ class MyClient(discord.Client):
                 break
 
     def get_commands(self, guild):
-        commands = "\n".join(["!watch " + str(x) for x in self.watchlist[guild.id]])
+        commands = "\n".join(["!watch " + str(x) for x in self._watchlist.get(guild.id, [])]
+                            +["!whitelist " + str(x) for x in self._whitelist.get(guild.id, [])])
         if len(commands) == 0:
             return "No config"
         return commands
