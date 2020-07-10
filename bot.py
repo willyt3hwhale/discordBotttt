@@ -194,9 +194,9 @@ class MyClient(discord.Client):
                     [invitee] = reaction.message.mentions
                     [channel] = reaction.message.channel_mentions
                     if user in channel.members:
-                        await channel.set_permissions(invitee, connect=True, speak=True, stream=True)
+                        await channel.set_permissions(invitee, connect=True, speak=True, stream=True, reason=f"User was accepted to join the group by {user.name}#{user.discriminator}")
                         await reaction.message.clear_reactions()
-                        await reaction.message.edit(content=f"User {invitee.mention} can now join the voice channel.")
+                        await reaction.message.edit(content=f"User {invitee.mention} can now join the voice channel.", delete_after=300)
                         queueChannel = self._privateChannelQueue.get(reaction.message.channel.guild.id)
                         if queueChannel is not None:
                             queueChannel = reaction.message.channel.guild.get_channel(queueChannel)
@@ -243,7 +243,7 @@ class MyClient(discord.Client):
                             guild.default_role: discord.PermissionOverwrite(manage_channels=False, connect=True, speak=False, stream=False),
                             privateMember: discord.PermissionOverwrite(manage_channels=True, move_members=True, speak=True, stream=True),
                     }
-                    new_voice = await category.create_voice_channel(f"{member.name}'s private channel", reason=f"Requested by {privateMember.name}#{privateMember.discriminator}", overwrites=overwrites)
+                    new_voice = await category.create_voice_channel(f"{member.nick or member.name}'s private channel", reason=f"Requested by {privateMember.name}#{privateMember.discriminator}", overwrites=overwrites)
                     await privateMember.move_to(new_voice, reason="Moved to newly created channel")
             elif after.channel.id == self._privateChannelQueue.get(guild.id, None):
                 pass
@@ -253,7 +253,7 @@ class MyClient(discord.Client):
                 waitroom = self._privateChannelQueue.get(guild.id, None)
                 if waitroom is not None:
                     waitroom = guild.get_channel(waitroom)
-                await member.move_to(waitroom, reason="Not yet accepted to the group")
+                await member.move_to(waitroom, reason="Awaiting acceptance to the private group")
                 msgChannel = self._privateChannelMessages.get(guild.id, None)
                 if msgChannel is not None:
                     msgChannel = guild.get_channel(msgChannel)
