@@ -77,9 +77,9 @@ class MyClient(discord.Client):
         await self.cleanup()
         self._startupCompleted = True
 
-    @command(commands)
-    async def print(self, args, context):
-       await context.channel.send(content=str(args))
+    # @command(commands)
+    # async def print(self, args, context):
+    #    await context.channel.send(content=str(args))
 
     @admin_command(commands)
     async def watch(self, args, context, admin_for=None):
