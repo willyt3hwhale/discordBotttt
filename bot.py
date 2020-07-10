@@ -169,16 +169,17 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         print('Message from {0.author}: {0.content}'.format(message))
         if(message.guild == None or (message.author == message.guild.owner or message.author.id in self._moderators.get(message.guild.id, []))):
-            if (message.content.startswith(command_prefix)):
-                msg = message.content[len(command_prefix):].lower()
-                if (' ' in msg):
-                    cmd, args = msg.split(' ', 1)
-                else:
-                    cmd = msg
-                    args = ""
-                if (cmd in commands):
-                    context = CommandtCtx(channel=message.channel, user=message.author, guild=message.guild, message=message)
-                    await commands[cmd](self, args, context)
+            for line in message.content.splitlines():
+                if (line.startswith(command_prefix)):
+                    msg = line[len(command_prefix):].lower()
+                    if (' ' in msg):
+                        cmd, args = msg.split(' ', 1)
+                    else:
+                        cmd = msg
+                        args = ""
+                    if (cmd in commands):
+                        context = CommandtCtx(channel=message.channel, user=message.author, guild=message.guild, message=message)
+                        await commands[cmd](self, args, context)
 
     async def on_message_edit(self, before, after):
         if type(after.channel) == discord.DMChannel and before.content != after.content:
