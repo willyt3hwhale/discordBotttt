@@ -8,7 +8,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Optional
 
-text_message_timeout = 10
+text_message_timeout = 3600
 voice_timeout = 5
 command_prefix = "!"
 
@@ -293,9 +293,23 @@ class MyClient(discord.Client):
     async def cleanup(self):
         for server in self.guilds:
             for channel in server.channels:
-                if(channel.category_id in self.allWatchlist(channel.guild.id) and channel.id not in self.allWhitelist(channel.guild.id) and (channel.type != discord.ChannelType.voice or len(channel.members) == 0 )):
+                if channel.category_id in self.allWatchlist(channel.guild.id) and channel.id not in self.allWhitelist(channel.guild.id):
+                    do_delete = False
+                    if channel.type == discord.ChannelType.voice and len(channel.members) == 0:
+                        do_delete = True
+                    elif channel.type == discord.ChannelType.text:
+                        latest_date = channel.created_at
+                        messages = await channel.history(limit=1, oldest_first=False).flatten()
+                        print("mess", messages)
+                        print("date", latest_date)
+                        if len(messages) > 0:
+                            latest_date = messages[0].created_at if messages[0].edited_at is None else messages[0].edited_at
+                        print("new_date", latest_date)
+                        if latest_date + timedelta(seconds=text_message_timeout) < datetime.utcnow():
+                            do_delete = True
                     try:
-                        await channel.delete()
+                        if do_delete:
+                            await channel.delete()
                     except:
                         pass
             botMsgs = self._privateChannelMessages.get(server.id, None)
