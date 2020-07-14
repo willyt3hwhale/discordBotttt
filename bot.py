@@ -196,7 +196,7 @@ class MyClient(discord.Client):
                     if user in channel.members:
                         await channel.set_permissions(invitee, connect=True, speak=True, stream=True, reason=f"User was accepted to join the group by {user.name}#{user.discriminator}")
                         await reaction.message.clear_reactions()
-                        await reaction.message.edit(content=f"User {invitee.mention} can now join the voice channel.", delete_after=300)
+                        await reaction.message.edit(content=f"User {invitee.mention} was allowed to join the channel by {user.mention}.", delete_after=300)
                         queueChannel = self._privateChannelQueue.get(reaction.message.channel.guild.id)
                         if queueChannel is not None:
                             queueChannel = reaction.message.channel.guild.get_channel(queueChannel)
@@ -258,7 +258,7 @@ class MyClient(discord.Client):
                 if msgChannel is not None:
                     msgChannel = guild.get_channel(msgChannel)
                     if msgChannel is not None:
-                        message = await msgChannel.send(content=f"User {member.mention} wants to join private {channelMention}. Allow?", delete_after=600)
+                        message = await msgChannel.send(content=f"User {member.mention} wants to join private {channelMention}. Allow?", delete_after=3600)
                         await message.add_reaction('👍')
 
     async def on_guild_channel_create(self, channel):
