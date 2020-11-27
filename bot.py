@@ -319,7 +319,9 @@ class MyClient(discord.Client):
                     await botMsgs.purge(before=datetime.now() - timedelta(days=1), oldest_first=True)
 
     async def init_config(self):
-        for guild in self.guilds:
+        async def init_guild(guild):
+            if not guild.chunked:
+                await guild.chunk()
             if guild.owner.dm_channel is None:
                 await guild.owner.create_dm()
             async for config in guild.owner.dm_channel.history():
@@ -336,6 +338,9 @@ class MyClient(discord.Client):
                     message.guild = guild
                     await self.on_message(message)
                 break
+        if len(self.guilds) > 0:
+            await asyncio.wait([init_guild(x) for x in self.guilds])
+
 
     def get_commands(self, guild):
         commands = "\n".join(["!watch " + str(x) for x in self._watchlist.get(guild.id, [])]
@@ -366,8 +371,12 @@ class MyClient(discord.Client):
                     guild.owner.dm_channel.send(content=self.get_commands(guild))
 
 
+intents = discord.Intents.default()
+intents.members = True
+intents.guilds = True
+intents.messages = True
+intents.guild_reactions = True
 
-
-client = MyClient()
+client = MyClient(intents=intents)
 client.run(api_token)
 
